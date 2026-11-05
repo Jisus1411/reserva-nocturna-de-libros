@@ -1,6 +1,9 @@
 from datetime import datetime
+from flask import Flask, render_template, request, jsonify
 
-# 1. Definimos la lista de libros disponibles
+app = Flask(__name__)
+
+# 1. Tu lista de libros original
 biblioteca = [
     "game_of_thrones",
     "harry_potter",
@@ -11,11 +14,10 @@ biblioteca = [
     "the_hunger_games"
 ]
 
-# 2. Función para evaluar la devolución y multas post-cierre
+# 2. Tu función original intacta
 def calcular_multa_reserva(hora_devolucion, minutos_devolucion):
-    
     HORA_INICIO_PRESTAMO = 18 * 60  # 6:00 PM (1080 minutos)
-    HORA_CIERRE = 20 * 60           # 8:00 PM (1200 minutos)
+    HORA_CIERRE = 20 * 60             # 8:00 PM (1200 minutos)
     VALOR_MULTA_POR_HORA = 150        # 150 pesos por hora de retraso
 
     HORA_FINAL = hora_devolucion * 60 + minutos_devolucion
@@ -36,44 +38,31 @@ def calcular_multa_reserva(hora_devolucion, minutos_devolucion):
     return "✅ Devolución exitosa dentro del tiempo reglamentario (Sin multas)."
 
 
-# --- INTERACCIÓN CON EL USUARIO (CICLO WHILE) ---
-print("=== SISTEMA DE RESERVAS NOCTURNAS DE BIBLIOTECA ===")
+# --- CONEXIÓN CON LA INTERFAZ WEB ---
 
-while True:
-    print("\nLibros disponibles:")
-    for i, libro in enumerate(biblioteca):
-        print(f"{i + 1}. {libro}")
-    print("-" * 50)
+@app.route("/")
+def home():
+    return render_template("index.html", libros=biblioteca)
 
-    # El usuario selecciona el libro
-    opcion_usuario = int(input("Ingrese el número del libro que desea gestionar: "))
-    indice_libro = opcion_usuario - 1
-
-    # Validamos que el libro exista
+@app.route("/api/calcular", methods=["POST"])
+def calcular():
+    datos = request.json
+    indice_libro = int(datos.get("indice_libro"))
+    hora = int(datos.get("hora"))
+    minutos = int(datos.get("minutos"))
+    
     if 0 <= indice_libro < len(biblioteca):
         libro_seleccionado = biblioteca[indice_libro]
-        print(f"📖 Libro seleccionado: --> {libro_seleccionado.upper()} <--\n")
-
-        print("ℹ️ Información: El préstamo se registra de manera estándar a las 6:00 PM.")
-        
-        # Solicitamos los datos de devolución
-        print("\n--- DATOS DE DEVOLUCIÓN ---")
-        hora_devolucion = int(input("Ingrese la hora de devolución (formato 24h, ej: 21 para las 9 PM, o 6 para el día siguiente): "))
-        minutos_devolucion = int(input("Ingrese los minutos de devolución (ej: 0): "))
-
-        # Ejecutamos la función de cálculo
-        resultado = calcular_multa_reserva(hora_devolucion, minutos_devolucion)
-
-        print("\n" + "=" * 50)
-        print(f"Libro gestionado: {libro_seleccionado}")
-        print(resultado)
-        print("=" * 50)
-    else:
-        print("❌ Error: El número de libro seleccionado no es válido.")
-
-    # Preguntamos si desea repetir el proceso
-    otra_gestion = input("\n¿Desea ingresar otra devolución? (s/n): ").strip().lower()
+        resultado = calcular_multa_reserva(hora, minutos)
+        return jsonify({
+            "success": True,
+            "libro": libro_seleccionado,
+            "resultado": resultado
+        })
     
-    if otra_gestion != 's':
-        print("\n¡Gracias por usar el sistema de reservas nocturnas! Hasta luego.")
-        break
+    return jsonify({"success": False, "error": "Libro no válido"})
+
+
+# --- ARRANQUE DEL SERVIDOR ---
+if __name__ == "__main__":
+    app.run(debug=True)
